@@ -299,6 +299,111 @@
       background: var(--emerald);
       border-radius: 50%;
     }
+
+    /* Search */
+    #search-section {
+      background: var(--bg-card);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 1.5rem;
+      margin-bottom: 2rem;
+    }
+
+    #search-section label {
+      display: block;
+      font-weight: 600;
+      font-size: 0.75rem;
+      text-transform: uppercase;
+      letter-spacing: 1.2px;
+      color: var(--text-muted);
+      margin-bottom: 0.5rem;
+    }
+
+    #search-input {
+      width: 100%;
+      padding: 0.7rem 0.85rem 0.7rem 2.5rem;
+      font-family: 'DM Sans', sans-serif;
+      font-size: 0.95rem;
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      background: var(--bg-input) url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' fill='%23707070' viewBox='0 0 16 16'%3E%3Cpath d='M11.742 10.344a6.5 6.5 0 1 0-1.397 1.398h-.001l3.85 3.85a1 1 0 0 0 1.415-1.414l-3.85-3.85zm-5.242.156a5 5 0 1 1 0-10 5 5 0 0 1 0 10z'/%3E%3C/svg%3E") no-repeat 0.85rem center;
+      color: var(--text);
+      outline: none;
+      transition: border-color 0.15s, box-shadow 0.15s;
+    }
+
+    #search-input::placeholder { color: #606060; }
+
+    #search-input:focus {
+      border-color: var(--accent);
+      box-shadow: 0 0 0 3px #5B9FEF18;
+    }
+
+    #search-results {
+      margin-top: 0.75rem;
+      max-height: 360px;
+      overflow-y: auto;
+    }
+
+    .search-result {
+      display: flex;
+      align-items: baseline;
+      gap: 0.75rem;
+      padding: 0.6rem 0.75rem;
+      border-radius: 8px;
+      cursor: pointer;
+      transition: background 0.12s;
+      text-decoration: none;
+    }
+
+    .search-result:hover {
+      background: var(--bg-elevated);
+      text-decoration: none;
+    }
+
+    .search-result-code {
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 0.85rem;
+      font-weight: 500;
+      color: var(--accent);
+      min-width: 4.5rem;
+    }
+
+    .search-result-name {
+      color: var(--text);
+      font-weight: 500;
+      font-size: 0.9rem;
+      flex: 1;
+    }
+
+    .search-result-level {
+      font-size: 0.7rem;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.8px;
+      padding: 0.1rem 0.5rem;
+      border-radius: 6px;
+      white-space: nowrap;
+    }
+
+    .level-sector { background: #A855F722; color: var(--purple); border: 1px solid #A855F74D; }
+    .level-subsector { background: #5B9FEF22; color: var(--accent); border: 1px solid #5B9FEF4D; }
+    .level-industry-group { background: #22D3EE22; color: var(--cyan); border: 1px solid #22D3EE4D; }
+    .level-industry { background: #7BC96F22; color: var(--emerald); border: 1px solid #7BC96F4D; }
+    .level-us-industry { background: #F59E4222; color: var(--amber); border: 1px solid #F59E424D; }
+
+    .search-count {
+      font-size: 0.8rem;
+      color: var(--text-muted);
+      margin-top: 0.5rem;
+      padding-left: 0.75rem;
+    }
+
+    .search-empty {
+      color: var(--text-muted);
+      font-size: 0.9rem;
+      padding: 1rem 0.75rem;
+    }
   </style>
 </head>
 <body>
@@ -311,6 +416,12 @@
       All endpoints return JSON. No authentication required. CORS is enabled by default on GitHub Pages.
       Source data and build scripts are on <a href="https://github.com/upholdjd/NAICS">GitHub</a>.
     </p>
+
+    <div id="search-section">
+      <label for="search-input">Search NAICS Codes</label>
+      <input type="text" id="search-input" placeholder="Search by code or name, e.g. &quot;5112&quot; or &quot;Software&quot;">
+      <div id="search-results"></div>
+    </div>
 
     <div class="note">
       NAICS codes are <strong>strings</strong>, not numbers. Some codes have leading zeros (e.g., <code>"09"</code>). Always treat them as strings.
@@ -514,6 +625,83 @@ console.log(data.children);     // direct children</code></pre>
 
     btn.addEventListener('click', tryFetch);
     input.addEventListener('keydown', (e) => { if (e.key === 'Enter') tryFetch(); });
+
+    // Search
+    const searchInput = document.getElementById('search-input');
+    const searchResults = document.getElementById('search-results');
+    let searchIndex = null;
+
+    const levelClassMap = {
+      'Sector': 'level-sector',
+      'Subsector': 'level-subsector',
+      'Industry Group': 'level-industry-group',
+      'Industry': 'level-industry',
+      'US Industry': 'level-us-industry',
+    };
+
+    // Lazy-load search index on first interaction
+    async function loadIndex() {
+      if (searchIndex) return;
+      try {
+        const res = await fetch(BASE_URL + 'search-index.json');
+        const json = await res.json();
+        searchIndex = json.data;
+      } catch (e) {
+        searchResults.innerHTML = '<div class="search-empty">Failed to load search index.</div>';
+      }
+    }
+
+    // Look up level from code length
+    function guessLevel(code) {
+      const map = { 2: 'Sector', 3: 'Subsector', 4: 'Industry Group', 5: 'Industry', 6: 'US Industry' };
+      return map[code.length] || '';
+    }
+
+    let searchTimeout;
+    searchInput.addEventListener('input', () => {
+      clearTimeout(searchTimeout);
+      searchTimeout = setTimeout(doSearch, 150);
+    });
+
+    searchInput.addEventListener('focus', loadIndex);
+
+    async function doSearch() {
+      await loadIndex();
+      if (!searchIndex) return;
+
+      const q = searchInput.value.trim().toLowerCase();
+      if (!q) {
+        searchResults.innerHTML = '';
+        return;
+      }
+
+      const matches = [];
+      const MAX = 50;
+      for (const item of searchIndex) {
+        if (matches.length >= MAX) break;
+        if (item.c.toLowerCase().includes(q) || item.n.toLowerCase().includes(q)) {
+          matches.push(item);
+        }
+      }
+
+      if (matches.length === 0) {
+        searchResults.innerHTML = '<div class="search-empty">No results found.</div>';
+        return;
+      }
+
+      const html = matches.map(item => {
+        const level = guessLevel(item.c);
+        const cls = levelClassMap[level] || '';
+        return `<a class="search-result" href="api/v1/naics/${escapeHtml(item.c)}.json">
+          <span class="search-result-code">${escapeHtml(item.c)}</span>
+          <span class="search-result-name">${escapeHtml(item.n)}</span>
+          ${level ? `<span class="search-result-level ${cls}">${escapeHtml(level)}</span>` : ''}
+        </a>`;
+      }).join('');
+
+      const countText = matches.length >= MAX ? `Showing first ${MAX} results` : `${matches.length} result${matches.length === 1 ? '' : 's'}`;
+      searchResults.innerHTML = html + `<div class="search-count">${countText}</div>`;
+    }
   </script>
 </body>
 </html>
