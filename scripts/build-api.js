@@ -19,6 +19,10 @@ const API = path.join(DIST, 'api', 'v1');
 
 const VERSION = '1.0.0';
 const SOURCE = 'https://github.com/upholdjd/NAICS';
+const NAICS_SEARCH_PAGE = 'https://www.naics.com/search/';
+const NAICS_CODE_DESCRIPTION_BASE = 'https://www.naics.com/naics-code-description/?code=';
+const NAICS_AJAX_SEARCH_URL = 'https://www.naics.com/wp-admin/admin-ajax.php';
+const NAICS_AJAX_CONTENT_TYPE = 'application/x-www-form-urlencoded; charset=UTF-8';
 
 // ---------------------------------------------------------------------------
 // Helpers
@@ -64,6 +68,14 @@ function breadcrumb(code, byCode) {
   return trail;
 }
 
+/** Build external lookup URLs for a NAICS code */
+function buildLookup(code) {
+  return {
+    search_page: NAICS_SEARCH_PAGE,
+    code_description: `${NAICS_CODE_DESCRIPTION_BASE}${encodeURIComponent(code)}`,
+  };
+}
+
 /** Recursively build a tree node for a code */
 function buildTree(code, childrenMap, byCode) {
   const record = byCode.get(code);
@@ -73,6 +85,7 @@ function buildTree(code, childrenMap, byCode) {
     code: record.naics,
     name: record.formal_name,
     level: record.level,
+    lookup: buildLookup(record.naics),
   };
   if (kids.length > 0) node.children = kids;
   return node;
@@ -136,6 +149,7 @@ function main() {
     name: r.formal_name,
     level: r.level,
     sector: r.sector,
+    lookup: buildLookup(r.naics),
   }));
   writeJSON(path.join(API, 'codes.json'), summary, '/codes.json');
   fileCount++;
@@ -177,10 +191,16 @@ function main() {
   for (const record of naics) {
     const children = (childrenMap.get(record.naics) || []).map((c) => {
       const child = byCode.get(c);
-      return { code: child.naics, name: child.formal_name, level: child.level };
+      return {
+        code: child.naics,
+        name: child.formal_name,
+        level: child.level,
+        lookup: buildLookup(child.naics),
+      };
     });
     const enriched = {
       ...record,
+      lookup: buildLookup(record.naics),
       breadcrumb: breadcrumb(record.naics, byCode),
       children,
     };
@@ -201,6 +221,7 @@ function main() {
       code: r.naics,
       name: r.formal_name,
       sector: r.sector,
+      lookup: buildLookup(r.naics),
     }));
     writeJSON(path.join(API, 'level', `${slug}.json`), levelData, `/level/${slug}.json`);
     fileCount++;
@@ -215,6 +236,7 @@ function main() {
       code: r.naics,
       name: r.formal_name,
       level: r.level,
+      lookup: buildLookup(r.naics),
     }));
     writeJSON(path.join(API, 'sector', `${code}.json`), sectorData, `/sector/${code}.json`);
     fileCount++;
@@ -250,7 +272,12 @@ function main() {
   for (const [parentCode, childCodes] of childrenMap) {
     const children = childCodes.map((c) => {
       const child = byCode.get(c);
-      return { code: child.naics, name: child.formal_name, level: child.level };
+      return {
+        code: child.naics,
+        name: child.formal_name,
+        level: child.level,
+        lookup: buildLookup(child.naics),
+      };
     });
     writeJSON(
       path.join(API, 'children', `${parentCode}.json`),
@@ -288,8 +315,31 @@ function main() {
     c: r.naics,
     n: r.formal_name,
     s: r.sector,
+    u: buildLookup(r.naics).code_description,
   }));
   writeJSON(path.join(API, 'search-index.json'), searchIndex, '/search-index.json');
+  fileCount++;
+
+  // -------------------------------------------------------------------------
+  // 13. search-config.json — request template for NAICS.com live search
+  // -------------------------------------------------------------------------
+  console.log('Generating search-config.json...');
+  writeJSON(
+    path.join(API, 'search-config.json'),
+    {
+      search_page: NAICS_SEARCH_PAGE,
+      code_description_template: `${NAICS_CODE_DESCRIPTION_BASE}{code}`,
+      json_call: {
+        method: 'POST',
+        url: NAICS_AJAX_SEARCH_URL,
+        headers: {
+          'Content-Type': NAICS_AJAX_CONTENT_TYPE,
+        },
+        body_template: 'action=naics_search_autocomplete&words={query}&source_form=naics',
+      },
+    },
+    '/search-config.json'
+  );
   fileCount++;
 
   // -------------------------------------------------------------------------

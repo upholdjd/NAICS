@@ -21,7 +21,8 @@ A free, static JSON API for 2,404 NAICS classification codes, served via GitHub 
 | [`tree.json`](https://upholdjd.github.io/NAICS/api/v1/tree.json) | Full hierarchical tree |
 | [`mini/codes.json`](https://upholdjd.github.io/NAICS/api/v1/mini/codes.json) | All NAICS_Mini records |
 | [`mini/{code}.json`](https://upholdjd.github.io/NAICS/api/v1/mini/51.json) | Individual mini record |
-| [`search-index.json`](https://upholdjd.github.io/NAICS/api/v1/search-index.json) | Compact index for client-side search |
+| [`search-index.json`](https://upholdjd.github.io/NAICS/api/v1/search-index.json) | Compact index for client-side search (`c`, `n`, `s`, `u`) |
+| [`search-config.json`](https://upholdjd.github.io/NAICS/api/v1/search-config.json) | JSON request template for live lookup on NAICS.com |
 
 ## Quick Start
 
@@ -34,6 +35,7 @@ const { data } = await res.json();
 console.log(data.formal_name);  // "Wired Telecommunications Carriers"
 console.log(data.breadcrumb);   // ancestry chain
 console.log(data.children);     // direct children
+console.log(data.lookup);       // external lookup URLs
 ```
 
 ## Response Format
@@ -50,6 +52,25 @@ Every endpoint returns a consistent envelope:
   },
   "data": { ... }
 }
+```
+
+### Live Search JSON Call Template
+
+Use `search-config.json` for an API-ready request template:
+
+```js
+const BASE = 'https://upholdjd.github.io/NAICS/api/v1';
+const { data: cfg } = await (await fetch(`${BASE}/search-config.json`)).json();
+
+const query = 'software';
+const body = cfg.json_call.body_template.replace('{query}', encodeURIComponent(query));
+
+const res = await fetch(cfg.json_call.url, {
+  method: cfg.json_call.method,
+  headers: cfg.json_call.headers,
+  body,
+});
+const json = await res.json();
 ```
 
 ## Notes
