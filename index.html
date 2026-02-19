@@ -1,0 +1,383 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>NAICS Static REST API</title>
+  <style>
+    :root {
+      --bg: #ffffff;
+      --bg-alt: #f6f8fa;
+      --text: #1f2328;
+      --text-muted: #656d76;
+      --border: #d0d7de;
+      --accent: #0969da;
+      --accent-bg: #ddf4ff;
+      --code-bg: #f6f8fa;
+      --success: #1a7f37;
+      --tag-bg: #ddf4ff;
+      --tag-text: #0550ae;
+    }
+
+    @media (prefers-color-scheme: dark) {
+      :root {
+        --bg: #0d1117;
+        --bg-alt: #161b22;
+        --text: #e6edf3;
+        --text-muted: #8b949e;
+        --border: #30363d;
+        --accent: #58a6ff;
+        --accent-bg: #162d50;
+        --code-bg: #161b22;
+        --success: #3fb950;
+        --tag-bg: #162d50;
+        --tag-text: #58a6ff;
+      }
+    }
+
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Helvetica, Arial, sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      line-height: 1.6;
+      max-width: 900px;
+      margin: 0 auto;
+      padding: 2rem 1.5rem;
+    }
+
+    h1 { font-size: 2rem; margin-bottom: 0.25rem; }
+    h2 { font-size: 1.4rem; margin: 2rem 0 0.75rem; border-bottom: 1px solid var(--border); padding-bottom: 0.5rem; }
+    h3 { font-size: 1.1rem; margin: 1.5rem 0 0.5rem; }
+
+    p { margin-bottom: 0.75rem; }
+    a { color: var(--accent); text-decoration: none; }
+    a:hover { text-decoration: underline; }
+
+    .subtitle { color: var(--text-muted); font-size: 1.1rem; margin-bottom: 1.5rem; }
+
+    .badge {
+      display: inline-block;
+      background: var(--tag-bg);
+      color: var(--tag-text);
+      padding: 0.15rem 0.5rem;
+      border-radius: 1rem;
+      font-size: 0.8rem;
+      font-weight: 600;
+      margin-left: 0.5rem;
+      vertical-align: middle;
+    }
+
+    code {
+      background: var(--code-bg);
+      padding: 0.15rem 0.4rem;
+      border-radius: 4px;
+      font-size: 0.9em;
+      font-family: 'SFMono-Regular', Consolas, 'Liberation Mono', Menlo, monospace;
+    }
+
+    pre {
+      background: var(--code-bg);
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      padding: 1rem;
+      overflow-x: auto;
+      font-size: 0.85rem;
+      line-height: 1.5;
+      margin-bottom: 1rem;
+    }
+
+    pre code {
+      background: none;
+      padding: 0;
+    }
+
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      margin-bottom: 1rem;
+      font-size: 0.9rem;
+    }
+
+    th, td {
+      text-align: left;
+      padding: 0.6rem 0.75rem;
+      border: 1px solid var(--border);
+    }
+
+    th { background: var(--bg-alt); font-weight: 600; }
+
+    .endpoint-group { margin-bottom: 1.5rem; }
+
+    .note {
+      background: var(--accent-bg);
+      border-left: 3px solid var(--accent);
+      padding: 0.75rem 1rem;
+      border-radius: 0 6px 6px 0;
+      margin-bottom: 1rem;
+      font-size: 0.9rem;
+    }
+
+    #try-it {
+      background: var(--bg-alt);
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      padding: 1.25rem;
+      margin-bottom: 1rem;
+    }
+
+    #try-input {
+      width: 100%;
+      padding: 0.5rem 0.75rem;
+      font-family: 'SFMono-Regular', Consolas, monospace;
+      font-size: 0.85rem;
+      border: 1px solid var(--border);
+      border-radius: 4px;
+      background: var(--bg);
+      color: var(--text);
+      margin-bottom: 0.75rem;
+    }
+
+    #try-btn {
+      background: var(--accent);
+      color: #fff;
+      border: none;
+      padding: 0.5rem 1.25rem;
+      border-radius: 4px;
+      font-size: 0.9rem;
+      cursor: pointer;
+      font-weight: 500;
+    }
+
+    #try-btn:hover { opacity: 0.9; }
+
+    #try-output {
+      margin-top: 0.75rem;
+      max-height: 400px;
+      overflow: auto;
+    }
+
+    footer {
+      margin-top: 3rem;
+      padding-top: 1.5rem;
+      border-top: 1px solid var(--border);
+      color: var(--text-muted);
+      font-size: 0.85rem;
+    }
+  </style>
+</head>
+<body>
+
+  <h1>NAICS Static REST API <span class="badge">v1</span></h1>
+  <p class="subtitle">A free, static JSON API for 2,404 NAICS classification codes, served via GitHub Pages.</p>
+
+  <p>
+    All endpoints return JSON. No authentication required. CORS is enabled by default on GitHub Pages.
+    Source data and build scripts are on <a href="https://github.com/upholdjd/NAICS">GitHub</a>.
+  </p>
+
+  <div class="note">
+    NAICS codes are <strong>strings</strong>, not numbers. Some codes have leading zeros (e.g., <code>"09"</code>). Always treat them as strings.
+  </div>
+
+  <h2>Base URL</h2>
+  <pre><code>https://upholdjd.github.io/NAICS/api/v1/</code></pre>
+
+  <h2>Endpoints</h2>
+
+  <div class="endpoint-group">
+    <h3>All Codes</h3>
+    <table>
+      <tr><th>Endpoint</th><th>Description</th></tr>
+      <tr>
+        <td><code><a href="api/v1/codes.json">codes.json</a></code></td>
+        <td>All 2,404 codes (summary: code, name, level, sector)</td>
+      </tr>
+      <tr>
+        <td><code><a href="api/v1/codes-full.json">codes-full.json</a></code></td>
+        <td>All 2,404 codes (full records with descriptions)</td>
+      </tr>
+      <tr>
+        <td><code><a href="api/v1/stats.json">stats.json</a></code></td>
+        <td>Dataset statistics (counts by level and by sector)</td>
+      </tr>
+      <tr>
+        <td><code><a href="api/v1/search-index.json">search-index.json</a></code></td>
+        <td>Compact index for client-side search (keys: <code>c</code>, <code>n</code>, <code>s</code>)</td>
+      </tr>
+    </table>
+  </div>
+
+  <div class="endpoint-group">
+    <h3>Individual Code Lookup</h3>
+    <table>
+      <tr><th>Endpoint</th><th>Description</th></tr>
+      <tr>
+        <td><code><a href="api/v1/naics/51.json">naics/{code}.json</a></code></td>
+        <td>Single code with full record, children, and breadcrumb ancestry</td>
+      </tr>
+      <tr>
+        <td><code><a href="api/v1/children/51.json">children/{code}.json</a></code></td>
+        <td>Direct children of a code (non-leaf codes only)</td>
+      </tr>
+    </table>
+  </div>
+
+  <div class="endpoint-group">
+    <h3>Browse by Level</h3>
+    <table>
+      <tr><th>Endpoint</th><th>Description</th></tr>
+      <tr>
+        <td><code><a href="api/v1/level/sector.json">level/sector.json</a></code></td>
+        <td>All 29 sectors</td>
+      </tr>
+      <tr>
+        <td><code><a href="api/v1/level/subsector.json">level/subsector.json</a></code></td>
+        <td>All 124 subsectors</td>
+      </tr>
+      <tr>
+        <td><code><a href="api/v1/level/industry-group.json">level/industry-group.json</a></code></td>
+        <td>All 376 industry groups</td>
+      </tr>
+      <tr>
+        <td><code><a href="api/v1/level/industry.json">level/industry.json</a></code></td>
+        <td>All 773 industries</td>
+      </tr>
+      <tr>
+        <td><code><a href="api/v1/level/us-industry.json">level/us-industry.json</a></code></td>
+        <td>All 1,102 US industries</td>
+      </tr>
+    </table>
+  </div>
+
+  <div class="endpoint-group">
+    <h3>Browse by Sector</h3>
+    <table>
+      <tr><th>Endpoint</th><th>Description</th></tr>
+      <tr>
+        <td><code><a href="api/v1/sector/51.json">sector/{code}.json</a></code></td>
+        <td>All codes belonging to a sector (29 sectors available)</td>
+      </tr>
+      <tr>
+        <td><code><a href="api/v1/sector/51/tree.json">sector/{code}/tree.json</a></code></td>
+        <td>Hierarchical tree for one sector</td>
+      </tr>
+      <tr>
+        <td><code><a href="api/v1/tree.json">tree.json</a></code></td>
+        <td>Full hierarchical tree (all sectors)</td>
+      </tr>
+    </table>
+  </div>
+
+  <div class="endpoint-group">
+    <h3>Mini Records</h3>
+    <table>
+      <tr><th>Endpoint</th><th>Description</th></tr>
+      <tr>
+        <td><code><a href="api/v1/mini/codes.json">mini/codes.json</a></code></td>
+        <td>All 2,404 NAICS_Mini records</td>
+      </tr>
+      <tr>
+        <td><code><a href="api/v1/mini/51.json">mini/{code}.json</a></code></td>
+        <td>Individual mini record</td>
+      </tr>
+    </table>
+  </div>
+
+  <h2>Response Format</h2>
+  <p>Every endpoint returns a consistent envelope:</p>
+  <pre><code>{
+  "meta": {
+    "version": "1.0.0",
+    "generated": "2026-02-18T00:00:00.000Z",
+    "source": "https://github.com/upholdjd/NAICS",
+    "endpoint": "/naics/51.json"
+  },
+  "data": { ... }
+}</code></pre>
+
+  <h3>Data Schema (Full Record)</h3>
+  <table>
+    <tr><th>Field</th><th>Type</th><th>Description</th></tr>
+    <tr><td><code>naics</code></td><td>string</td><td>NAICS code (leading zeros preserved)</td></tr>
+    <tr><td><code>level</code></td><td>string</td><td>Sector, Subsector, Industry Group, Industry, or US Industry</td></tr>
+    <tr><td><code>sector_name</code></td><td>string</td><td>Sector display name</td></tr>
+    <tr><td><code>formal_name</code></td><td>string</td><td>Official name of the classification</td></tr>
+    <tr><td><code>description</code></td><td>string</td><td>Description of the classification</td></tr>
+    <tr><td><code>parent</code></td><td>string | null</td><td>Parent code (null for sectors)</td></tr>
+    <tr><td><code>sector</code></td><td>string</td><td>Sector code this belongs to</td></tr>
+  </table>
+
+  <h3>Enriched Fields (naics/{code}.json only)</h3>
+  <table>
+    <tr><th>Field</th><th>Type</th><th>Description</th></tr>
+    <tr><td><code>breadcrumb</code></td><td>array</td><td>Ancestry chain from root sector to parent</td></tr>
+    <tr><td><code>children</code></td><td>array</td><td>Direct children (code, name, level)</td></tr>
+  </table>
+
+  <h2>Try It</h2>
+  <div id="try-it">
+    <label for="try-input">Enter an endpoint path:</label>
+    <input type="text" id="try-input" value="naics/51.json" placeholder="e.g. codes.json, naics/11.json, stats.json">
+    <button id="try-btn">Fetch</button>
+    <div id="try-output"></div>
+  </div>
+
+  <h2>Usage Example</h2>
+  <pre><code>const BASE = 'https://upholdjd.github.io/NAICS/api/v1';
+
+// Fetch a single code
+const res = await fetch(`${BASE}/naics/517311.json`);
+const { data } = await res.json();
+
+console.log(data.formal_name);  // "Wired Telecommunications Carriers"
+console.log(data.breadcrumb);   // ancestry chain
+console.log(data.children);     // direct children</code></pre>
+
+  <h2>Notes</h2>
+  <ul style="margin-left: 1.25rem; margin-bottom: 1rem;">
+    <li>Data is generated from static JSON files and rebuilt on each push to <code>main</code>.</li>
+    <li>No server, no database, no API keys. Just static JSON on GitHub Pages.</li>
+    <li>CORS is enabled by default, so you can <code>fetch()</code> from any origin.</li>
+    <li>If you need the raw source data, see <a href="https://github.com/upholdjd/NAICS">the repository</a>.</li>
+  </ul>
+
+  <footer>
+    <p>Built by <a href="https://github.com/upholdjd">upholdjd</a> &middot; Data: NAICS Classification System &middot; <a href="https://github.com/upholdjd/NAICS">Source on GitHub</a></p>
+  </footer>
+
+  <script>
+    const BASE_URL = new URL('api/v1/', window.location.href).href;
+    const input = document.getElementById('try-input');
+    const btn = document.getElementById('try-btn');
+    const output = document.getElementById('try-output');
+
+    async function tryFetch() {
+      const endpoint = input.value.trim().replace(/^\//, '');
+      if (!endpoint) return;
+      output.innerHTML = '<p style="color:var(--text-muted)">Loading...</p>';
+      try {
+        const res = await fetch(BASE_URL + endpoint);
+        if (!res.ok) throw new Error(`HTTP ${res.status} ${res.statusText}`);
+        const json = await res.json();
+        const formatted = JSON.stringify(json, null, 2);
+        // Truncate display if very large
+        const display = formatted.length > 5000
+          ? formatted.slice(0, 5000) + '\n\n... (truncated)'
+          : formatted;
+        output.innerHTML = `<pre><code>${escapeHtml(display)}</code></pre>`;
+      } catch (err) {
+        output.innerHTML = `<pre style="color:#d1242f"><code>${escapeHtml(err.message)}</code></pre>`;
+      }
+    }
+
+    function escapeHtml(str) {
+      return str.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+    }
+
+    btn.addEventListener('click', tryFetch);
+    input.addEventListener('keydown', (e) => { if (e.key === 'Enter') tryFetch(); });
+  </script>
+</body>
+</html>
