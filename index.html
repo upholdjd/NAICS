@@ -619,6 +619,7 @@ console.log(data.children);     // direct children</code></pre>
         const res = await fetch(BASE_URL + 'search-index.json');
         if (!res.ok) throw new Error('Failed to load search index');
         const json = await res.json();
+        if (!Array.isArray(json.data)) throw new Error('Invalid search index');
         searchIndex = json.data;
       } catch (err) {
         searchResults.innerHTML = '<p class="search-info">Could not load search index.</p>';
