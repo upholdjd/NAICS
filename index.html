@@ -299,6 +299,91 @@
       background: var(--emerald);
       border-radius: 50%;
     }
+
+    /* Search section */
+    #search-section {
+      background: var(--bg-card);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 1.5rem;
+      margin-bottom: 1rem;
+    }
+
+    #search-section label {
+      display: block;
+      font-weight: 600;
+      font-size: 0.75rem;
+      text-transform: uppercase;
+      letter-spacing: 1.2px;
+      color: var(--text-muted);
+      margin-bottom: 0.5rem;
+    }
+
+    #search-input {
+      width: 100%;
+      padding: 0.6rem 0.85rem;
+      font-family: 'DM Sans', sans-serif;
+      font-size: 0.9rem;
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      background: var(--bg-input);
+      color: var(--text);
+      margin-bottom: 0.85rem;
+      outline: none;
+      transition: border-color 0.15s, box-shadow 0.15s;
+    }
+
+    #search-input::placeholder { color: #606060; }
+
+    #search-input:focus {
+      border-color: var(--accent);
+      box-shadow: 0 0 0 3px #5B9FEF18;
+    }
+
+    #search-results {
+      max-height: 400px;
+      overflow: auto;
+    }
+
+    .search-result-item {
+      display: flex;
+      align-items: baseline;
+      gap: 0.75rem;
+      padding: 0.55rem 0.65rem;
+      border-radius: 6px;
+      transition: background 0.1s;
+      cursor: default;
+    }
+
+    .search-result-item:hover {
+      background: var(--bg-elevated);
+    }
+
+    .search-result-code {
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 0.85rem;
+      color: var(--accent);
+      white-space: nowrap;
+      min-width: 4.5rem;
+    }
+
+    .search-result-name {
+      color: var(--text);
+      font-size: 0.9rem;
+      flex: 1;
+    }
+
+    .search-result-sector {
+      font-size: 0.75rem;
+      color: var(--text-muted);
+      white-space: nowrap;
+    }
+
+    .search-info {
+      color: var(--text-muted);
+      font-size: 0.85rem;
+      padding: 0.5rem 0;
+    }
   </style>
 </head>
 <body>
@@ -318,6 +403,15 @@
 
     <h2>Base URL</h2>
     <pre><code>https://upholdjd.github.io/NAICS/api/v1/</code></pre>
+
+    <h2>Search NAICS Codes</h2>
+    <div id="search-section">
+      <label for="search-input">Search by keyword or code</label>
+      <input type="text" id="search-input" placeholder="e.g. software, construction, 5112">
+      <div id="search-results">
+        <p class="search-info">Type a keyword or NAICS code to search across 2,404 classifications.</p>
+      </div>
+    </div>
 
     <h2>Endpoints</h2>
 
@@ -514,6 +608,76 @@ console.log(data.children);     // direct children</code></pre>
 
     btn.addEventListener('click', tryFetch);
     input.addEventListener('keydown', (e) => { if (e.key === 'Enter') tryFetch(); });
+
+    // --- Search functionality ---
+    const searchInput = document.getElementById('search-input');
+    const searchResults = document.getElementById('search-results');
+    let searchIndex = null;
+
+    async function loadSearchIndex() {
+      try {
+        const res = await fetch(BASE_URL + 'search-index.json');
+        if (!res.ok) throw new Error('Failed to load search index');
+        const json = await res.json();
+        if (!Array.isArray(json.data)) throw new Error('Invalid search index');
+        searchIndex = json.data;
+      } catch (err) {
+        searchResults.innerHTML = '<p class="search-info">Could not load search index.</p>';
+      }
+    }
+
+    function performSearch(query) {
+      if (!searchIndex) return;
+      query = query.trim().toLowerCase();
+      if (!query) {
+        searchResults.innerHTML = '<p class="search-info">Type a keyword or NAICS code to search across 2,404 classifications.</p>';
+        return;
+      }
+
+      const terms = query.split(/\s+/);
+      const matches = searchIndex.filter(function(item) {
+        var name = item.n.toLowerCase();
+        var code = item.c;
+        return terms.every(function(t) {
+          return name.indexOf(t) !== -1 || code.indexOf(t) !== -1;
+        });
+      });
+
+      if (matches.length === 0) {
+        searchResults.innerHTML = '<p class="search-info">No results found for \u201c' + escapeHtml(query) + '\u201d</p>';
+        return;
+      }
+
+      var maxDisplay = 50;
+      var html = '';
+      var display = matches.slice(0, maxDisplay);
+      for (var i = 0; i < display.length; i++) {
+        var item = display[i];
+        html += '<div class="search-result-item">'
+          + '<span class="search-result-code">' + escapeHtml(item.c) + '</span>'
+          + '<span class="search-result-name">' + escapeHtml(item.n) + '</span>'
+          + '<span class="search-result-sector">Sector ' + escapeHtml(item.s) + '</span>'
+          + '</div>';
+      }
+
+      if (matches.length > maxDisplay) {
+        html += '<p class="search-info">Showing ' + maxDisplay + ' of ' + matches.length + ' results. Refine your search for more specific results.</p>';
+      } else {
+        html += '<p class="search-info">' + matches.length + ' result' + (matches.length !== 1 ? 's' : '') + ' found.</p>';
+      }
+
+      searchResults.innerHTML = html;
+    }
+
+    var searchTimeout;
+    searchInput.addEventListener('input', function() {
+      clearTimeout(searchTimeout);
+      searchTimeout = setTimeout(function() {
+        performSearch(searchInput.value);
+      }, 200);
+    });
+
+    loadSearchIndex();
   </script>
 </body>
 </html>
